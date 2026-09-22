@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Performance Index Predictor</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --paper-line: #d8d2c2;
+    --ink: #232a3d;
+    --ink-soft: #5b6275;
+    --red-pen: #b5432b;
+    --red-pen-soft: #d97a5f;
+    --margin-line: #c9836f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #201d17;
+      --paper-line: #3a352a;
+      --ink: #eee7d6;
+      --ink-soft: #a89f8c;
+      --red-pen: #e2795a;
+      --red-pen-soft: #b5432b;
+      --margin-line: #8a5142;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #201d17;
+    --paper-line: #3a352a;
+    --ink: #eee7d6;
+    --ink-soft: #a89f8c;
+    --red-pen: #e2795a;
+    --red-pen-soft: #b5432b;
+    --margin-line: #8a5142;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-image:
+      repeating-linear-gradient(var(--paper) 0px, var(--paper) 34px, var(--paper-line) 35px);
+    background-attachment: local;
+  }
+
+  .sheet {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 48px 28px 80px;
+    position: relative;
+  }
+
+  .sheet::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 76px;
+    width: 1px;
+    background: var(--margin-line);
+    opacity: 0.55;
+  }
+
+  header {
+    margin-left: 40px;
+    margin-bottom: 44px;
+  }
+
+  .kicker {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+    margin: 0 0 6px;
+  }
+
+  h1 {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0 10px;
+    max-width: 22ch;
+  }
+
+  .lede {
+    color: var(--ink-soft);
+    font-size: 15.5px;
+    line-height: 1.55;
+    max-width: 46ch;
+    margin: 0;
+  }
+
+  form {
+    margin-left: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .field {
+    display: grid;
+    grid-template-columns: 1fr 88px;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 4px;
+  }
+
+  .field label {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .field .hint {
+    display: block;
+    font-family: 'Courier New', monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .field input[type="number"] {
+    font-family: inherit;
+    font-size: 18px;
+    color: var(--red-pen);
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px dashed var(--paper-line);
+    padding: 2px 2px 4px;
+    width: 100%;
+    text-align: right;
+    -moz-appearance: textfield;
+  }
+  .field input[type="number"]::-webkit-outer-spin-button,
+  .field input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .field input:focus {
+    outline: none;
+    border-bottom-color: var(--red-pen);
+  }
+
+  .toggle-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .toggle-row button {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    background: none;
+    border: 1px solid var(--paper-line);
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .toggle-row button[aria-pressed="true"] {
+    color: var(--red-pen);
+    border-color: var(--red-pen-soft);
+    background: color-mix(in srgb, var(--red-pen) 8%, transparent);
+  }
+  .toggle-row button:focus-visible,
+  .predict:focus-visible {
+    outline: 2px solid var(--red-pen);
+    outline-offset: 2px;
+  }
+
+  .predict {
+    margin-top: 8px;
+    align-self: flex-start;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 13px 26px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .predict:hover { opacity: 0.88; }
+
+  .result {
+    margin-left: 40px;
+    margin-top: 46px;
+    padding-top: 22px;
+    border-top: 1.5px dashed var(--paper-line);
+    display: none;
+  }
+  .result.visible { display: block; }
+
+  .result .grade-label {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+  }
+
+  .result .grade {
+    font-size: 64px;
+    font-weight: 700;
+    color: var(--red-pen);
+    line-height: 1;
+    display: inline-block;
+    transform: rotate(-2deg);
+    margin: 0;
+  }
+
+  .result .out-of {
+    font-size: 20px;
+    color: var(--ink-soft);
+    margin-left: 6px;
+  }
+
+  .result .note {
+    margin-top: 14px;
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    max-width: 48ch;
+  }
+
+  footer {
+    margin-left: 40px;
+    margin-top: 60px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.7;
+  }
+
+  @media (max-width: 480px) {
+    .sheet::before { left: 20px; }
+    header, form, .result, footer { margin-left: 10px; }
+    h1 { font-size: 25px; }
+    .field { grid-template-columns: 1fr 74px; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <p class="kicker">performance index / predictor</p>
+    <h1>What score does this add up to?</h1>
+    <p class="lede">Enter a student's study habits below. The estimate comes from a linear regression trained on the Student Performance dataset.</p>
+  </header>
+
+  <form id="predict-form">
+    <div class="field">
+      <label for="hours">Hours studied
+        <span class="hint">per day, recent average</span>
+      </label>
+      <input type="number" id="hours" min="0" max="24" step="0.5" value="6" required>
+    </div>
+
+    <div class="field">
+      <label for="previous">Previous test score
+        <span class="hint">most recent exam, out of 100</span>
+      </label>
+      <input type="number" id="previous" min="0" max="100" step="1" value="85" required>
+    </div>
+
+    <div class="field">
+      <label for="sleep">Sleep hours
+        <span class="hint">typical night, last week</span>
+      </label>
+      <input type="number" id="sleep" min="0" max="14" step="0.5" value="7" required>
+    </div>
+
+    <div class="field">
+      <label for="papers">Practice papers solved
+        <span class="hint">sample question papers</span>
+      </label>
+      <input type="number" id="papers" min="0" max="20" step="1" value="5" required>
+    </div>
+
+    <div class="field" style="grid-template-columns: 1fr auto;">
+      <label id="extra-label">Extracurricular activities</label>
+      <div class="toggle-row">
+        <button type="button" id="extra-no" aria-pressed="false">No</button>
+        <button type="button" id="extra-yes" aria-pressed="true">Yes</button>
+      </div>
+    </div>
+
+    <button type="submit" class="predict">Predict performance index</button>
+  </form>
+
+  <div class="result" id="result">
+    <p class="grade-label">predicted performance index</p>
+    <span class="grade" id="grade-value">—</span><span class="out-of">/ 100</span>
+    <p class="note" id="grade-note"></p>
+  </div>
+
+  <footer>trained via scikit-learn LinearRegression · R² ≈ 0.99 on held-out data</footer>
+</div>
+
+<script>
+  // Coefficients from LinearRegression fit on Student_Performance.csv
+  // (train_test_split test_size=0.2, random_state=42)
+  const MODEL = {
+    intercept: -33.92194621555638,
+    coef: {
+      hours: 2.8524839300725766,
+      previous: 1.016988198932932,
+      extracurricular: 0.6086166795764194,
+      sleep: 0.4769414841762728,
+      papers: 0.1918314414505425
+    }
+  };
+
+  let extracurricular = 1;
+
+  const extraYes = document.getElementById('extra-yes');
+  const extraNo = document.getElementById('extra-no');
+
+  extraYes.addEventListener('click', () => {
+    extracurricular = 1;
+    extraYes.setAttribute('aria-pressed', 'true');
+    extraNo.setAttribute('aria-pressed', 'false');
+  });
+  extraNo.addEventListener('click', () => {
+    extracurricular = 0;
+    extraYes.setAttribute('aria-pressed', 'false');
+    extraNo.setAttribute('aria-pressed', 'true');
+  });
+
+  const form = document.getElementById('predict-form');
+  const resultBox = document.getElementById('result');
+  const gradeValue = document.getElementById('grade-value');
+  const gradeNote = document.getElementById('grade-note');
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const hours = parseFloat(document.getElementById('hours').value) || 0;
+    const previous = parseFloat(document.getElementById('previous').value) || 0;
+    const sleep = parseFloat(document.getElementById('sleep').value) || 0;
+    const papers = parseFloat(document.getElementById('papers').value) || 0;
+
+    let prediction =
+      MODEL.intercept +
+      MODEL.coef.hours * hours +
+      MODEL.coef.previous * previous +
+      MODEL.coef.extracurricular * extracurricular +
+      MODEL.coef.sleep * sleep +
+      MODEL.coef.papers * papers;
+
+    prediction = Math.max(0, Math.min(100, prediction));
+
+    gradeValue.textContent = prediction.toFixed(1);
+
+    let note;
+    if (prediction >= 85) {
+      note = "Strong projection — these habits track with the top band of the dataset.";
+    } else if (prediction >= 65) {
+      note = "A solid mid-range projection. More practice papers or study hours would push this up.";
+    } else {
+      note = "On the lower end. Previous score and hours studied carry the most weight here.";
+    }
+    gradeNote.textContent = note;
+
+    resultBox.classList.add('visible');
+  });
+</script>
+</body>
+</html>
