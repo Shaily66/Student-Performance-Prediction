@@ -85,6 +85,4 @@ Open `predictor.html` directly in any web browser — no server or install neede
 
 The model explains about 98.9% of the variance in student performance, with Previous Scores and Hours Studied as the strongest predictors.
 
-## Author
 
-Shaily — IBM SkillsBuild Data Analytics with AI Academic Internship Program (BharatCares × AICTE)
